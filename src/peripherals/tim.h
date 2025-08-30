@@ -8,6 +8,7 @@ extern "C" {
 #include "main.h"
 
 extern TIM_HandleTypeDef htim2;
+extern TIM_HandleTypeDef htim3;
 
 void MX_TIM2_Init(void);
 

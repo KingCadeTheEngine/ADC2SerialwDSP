@@ -23,6 +23,7 @@ The source code in `src/` is organized into logical subdirectories for clarity a
         *   `app_logic.c/.h`: Contains `app_setup()` and `app_loop()`.
         *   `app_config.h`: Application-specific configuration constants and hardware definitions.
         *   `stm32f4xx_it.c/.h`: Interrupt service routines and their callbacks.
+        *   `dsp_utils.c/.h`: Digital Signal Processing utilities, including Goertzel algorithm.
     *   `core/`: Core system initialization and main entry point.
         *   `main.c/.h`: Program entry point and global error handler.
         *   `system_config.c/.h`: Low-level system and clock configuration.
@@ -48,33 +49,47 @@ Emphasizes clean, modular code for easy understanding.
 
 ## Key Learnings and Project Changes
 
-This section summarizes key insights gained during a debugging session and the resulting project modifications, particularly concerning UART DMA communication.
+This section summarizes key insights gained during a debugging session and the resulting project modifications, particularly concerning UART DMA communication and DSP implementation.
 
 ### Project Changes:
 
 *   **`src/app/stm32f4xx_it.c`**: 
     *   Added `SysTick_Handler` (calls `HAL_IncTick()`) to enable the HAL's internal timekeeping.
     *   Added `HAL_UART_TxCpltCallback` (empty implementation) to properly manage UART DMA transfer completion.
-*   **`src/app/stm32f4xx_it.h`**: Declared `SysTick_Handler`.
+    *   Added `USARTx_RX_DMA_IRQHandler()` for the RX DMA stream.
+    *   Implemented `HAL_UARTEx_RxEventCallback()` to parse incoming commands (e.g., "d=50") and update PWM duty cycle using `pwm_set_duty_cycle_percent()`.
+*   **`src/app/stm32f4xx_it.h`**: 
+    *   Declared `SysTick_Handler`.
+    *   Declared `USARTx_RX_DMA_IRQHandler()`.
 *   **`src/peripherals/uart.c`**: 
     *   Switched `UART_Transmit_DMA` to use `HAL_UART_Transmit_DMA` for efficient data transfer.
     *   Enabled the DMA interrupt for the UART transmit stream (`HAL_NVIC_EnableIRQ(USARTx_DMA_IRQn);`) in `HAL_UART_MspInit`.
-*   **`src/app/app_config.h`**: Added definitions for UART RX DMA stream, channel, and buffer size (`UART_RX_BUFFER_SIZE`).
-*   **`src/peripherals/uart.c`**: 
     *   Enabled `UART_MODE_TX_RX` in `UART_Init()`.
     *   Configured DMA for UART RX (`DMA1_Stream5`, Channel 4) in `HAL_UART_MspInit()`.
     *   Implemented `UART_Receive_DMA_Start()` using `HAL_UARTEx_ReceiveToIdle_DMA()`.
     *   Updated `UART_Transmit_DMA()` function signature and implementation for robustness.
-*   **`src/peripherals/uart.h`**: Declared `hdma_usart2_rx`, `uart_dma_rx_buffer`, and `UART_Receive_DMA_Start()`.
+*   **`src/peripherals/uart.h`**: 
+    *   Declared `hdma_usart2_rx`, `uart_dma_rx_buffer`, and `UART_Receive_DMA_Start()`.
+*   **`src/app/app_config.h`**: 
+    *   Added definitions for UART RX DMA stream, channel, and buffer size (`UART_RX_BUFFER_SIZE`).
+    *   **New:** Added `DSP_WINDOW_LENGTH` (64) for DSP window size configuration.
 *   **`src/app/app_logic.c`**: 
     *   Made `htim3` (PWM timer handle) global.
     *   Called `UART_Receive_DMA_Start()` in `app_setup()`.
     *   Updated `UART_Transmit_DMA()` calls to match the new signature.
-*   **`src/app/app_logic.h`**: Declared `htim3` as `extern`.
-*   **`src/app/stm32f4xx_it.c`**: 
-    *   Added `USARTx_RX_DMA_IRQHandler()` for the RX DMA stream.
-    *   Implemented `HAL_UARTEx_RxEventCallback()` to parse incoming commands (e.g., "d=50") and update PWM duty cycle using `pwm_set_duty_cycle_percent()`.
-*   **`src/app/stm32f4xx_it.h`**: Declared `USARTx_RX_DMA_IRQHandler()`.
+    *   **New:** Removed `process_adc_data` function.
+    *   **New:** Integrated DSP processing into `app_loop()`: processes ADC DMA halves in 64-sample chunks using `DSP_ProcessWindow()`, formats results, and sends via `UART_Transmit_DMA()`. Removed tick-based rate limiting.
+    *   **New:** Replaced literal `64` with `DSP_WINDOW_LENGTH` for window size references.
+*   **`src/app/app_logic.h`**: 
+    *   Declared `htim3` as `extern`.
+    *   **New:** Included `dsp_utils.h` and `app_config.h`.
+    *   **New:** Declared `extern` for `ADC_HandleTypeDef hadc1;` and `UART_HandleTypeDef huart2;`.
+    *   **New:** Declared `extern` for `g_adc_dma_buf`, `g_adc_conv_half_cplt`, and `g_adc_conv_cplt`.
+*   **New Module: `src/app/dsp_utils.c/.h`**: 
+    *   Implemented the Goertzel algorithm for efficient single-frequency analysis (39kHz, 40kHz, 41kHz).
+    *   `DSP_Init()`: Initializes the DSP module, including pre-calculating Goertzel coefficients.
+    *   `DSP_ProcessWindow()`: Processes a window of ADC data, calculates magnitude and phase for target frequencies.
+    *   Included `app_config.h` and ensured `M_PI` definition.
 
 ### Learnings for Gemini Agents:
 

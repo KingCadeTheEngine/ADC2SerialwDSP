@@ -3,18 +3,21 @@
 
 #include "main.h"
 #include <stdbool.h>
+#include "dsp_utils.h" // Include for GoertzelResults_t
+#include "app_config.h" // Include for ADC_BUFFER_LENGTH
 
 // External declaration of peripheral handles
 extern TIM_HandleTypeDef htim3; // PWM Timer
+extern ADC_HandleTypeDef hadc1; // ADC Handle
+extern UART_HandleTypeDef huart2; // UART Handle
 
-// External declaration of ADC buffer and flags
-// These are defined in app_logic.c
-extern uint32_t g_adc_dma_buf[];
+// External declaration of ADC buffer and flags (defined in app_logic.c)
+extern uint32_t g_adc_dma_buf[ADC_BUFFER_LENGTH]; // Original buffer type
 extern volatile bool g_adc_conv_half_cplt;
 extern volatile bool g_adc_conv_cplt;
 
 /**
-  * @brief  Runs all initial setup for the application.
+  * @brief  Runs all initial setup for the application.  
   * @retval None
   */
 void app_setup(void);

@@ -3,6 +3,7 @@
 
 
 TIM_HandleTypeDef htim2;
+TIM_HandleTypeDef htim3;
 
 void HAL_TIM_PWM_MspInit(TIM_HandleTypeDef* htim_pwm)
 {

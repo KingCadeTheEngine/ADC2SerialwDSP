@@ -37,6 +37,9 @@
 // ADC Buffer
 #define ADC_BUFFER_LENGTH           512
 
+// DSP Configuration
+#define DSP_WINDOW_LENGTH           64
+
 /*============================================================================*/
 /* LED Blinky Configuration (using TIM)                                       */
 /*============================================================================*/
@@ -159,7 +162,7 @@
 #define PWM_GPIO_AF                 GPIO_AF2_TIM3 // Alternate Function for TIM3_CH1 on PA6
 
 // Default PWM Parameters
-#define PWM_DEFAULT_FREQUENCY_HZ    1000    // Default frequency in Hz (e.g., 1 kHz)
+#define PWM_DEFAULT_FREQUENCY_HZ    40000    // Default frequency in Hz (e.g., 1 kHz)
 #define PWM_DEFAULT_DUTY_CYCLE_PERCENT 75   // Default duty cycle in percentage (0-100)
 
 
