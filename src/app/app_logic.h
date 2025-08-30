@@ -4,6 +4,9 @@
 #include "main.h"
 #include <stdbool.h>
 
+// External declaration of peripheral handles
+extern TIM_HandleTypeDef htim3; // PWM Timer
+
 // External declaration of ADC buffer and flags
 // These are defined in app_logic.c
 extern uint32_t g_adc_dma_buf[];

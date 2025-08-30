@@ -5,14 +5,15 @@
 #include "tim.h"
 #include "adc.h"
 #include "uart.h"
-#include "pwm.h" // Include the new PWM header
+#include "pwm.h"
 #include <stdio.h>
+#include <string.h>
 
 /* Private variables ---------------------------------------------------------*/
 uint32_t g_adc_dma_buf[ADC_BUFFER_LENGTH];
 volatile bool g_adc_conv_half_cplt = false;
 volatile bool g_adc_conv_cplt = false;
-TIM_HandleTypeDef htim3; // Declare htim3 here
+TIM_HandleTypeDef htim3; // Declare htim3 here, no longer static
 
 /* Private function prototypes -----------------------------------------------*/
 static void process_adc_data(uint32_t* data_buffer, uint16_t buffer_size);
@@ -31,9 +32,8 @@ void app_setup(void)
   MX_GPIO_Init();
   MX_TIM2_Init();
   MX_ADC1_Init();
-  PWM_Init(&htim3, PWM_TIM_CHANNEL); // Initialize PWM using the new function name
+  PWM_Init(&htim3, PWM_TIM_CHANNEL);
   UART_Init();
-  UART_Transmit_DMA("UART Initialized in app_setup\r\n");
 
   /* Start the timer in interrupt mode */
   if (HAL_TIM_Base_Start_IT(&htim2) != HAL_OK)
@@ -52,6 +52,13 @@ void app_setup(void)
   {
     Error_Handler();
   }
+
+  /* Start UART Reception */
+  UART_Receive_DMA_Start();
+
+  /* Transmit initial message */
+  const char* msg = "App Setup Complete. UART RX running.\r\n";
+  UART_Transmit_DMA((uint8_t*)msg, strlen(msg));
 }
 
 /**
@@ -88,8 +95,9 @@ static void process_adc_data(uint32_t* data_buffer, uint16_t buffer_size)
   }
   uint16_t avg_adc_value = sum / buffer_size;
 
-  static char tx_buffer[50]; // A buffer to store the formatted string
-  sprintf(tx_buffer, "Mean: %hu\r\n", avg_adc_value);
-
-  UART_Transmit_DMA(tx_buffer);
+  static char tx_buffer[UART_TX_BUFFER_SIZE];
+  int len = snprintf(tx_buffer, sizeof(tx_buffer), "%hu\r\n", avg_adc_value);
+  if (len > 0) {
+      UART_Transmit_DMA((uint8_t*)tx_buffer, len);
+  }
 }

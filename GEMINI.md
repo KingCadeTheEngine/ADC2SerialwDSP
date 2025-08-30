@@ -59,6 +59,22 @@ This section summarizes key insights gained during a debugging session and the r
 *   **`src/peripherals/uart.c`**: 
     *   Switched `UART_Transmit_DMA` to use `HAL_UART_Transmit_DMA` for efficient data transfer.
     *   Enabled the DMA interrupt for the UART transmit stream (`HAL_NVIC_EnableIRQ(USARTx_DMA_IRQn);`) in `HAL_UART_MspInit`.
+*   **`src/app/app_config.h`**: Added definitions for UART RX DMA stream, channel, and buffer size (`UART_RX_BUFFER_SIZE`).
+*   **`src/peripherals/uart.c`**: 
+    *   Enabled `UART_MODE_TX_RX` in `UART_Init()`.
+    *   Configured DMA for UART RX (`DMA1_Stream5`, Channel 4) in `HAL_UART_MspInit()`.
+    *   Implemented `UART_Receive_DMA_Start()` using `HAL_UARTEx_ReceiveToIdle_DMA()`.
+    *   Updated `UART_Transmit_DMA()` function signature and implementation for robustness.
+*   **`src/peripherals/uart.h`**: Declared `hdma_usart2_rx`, `uart_dma_rx_buffer`, and `UART_Receive_DMA_Start()`.
+*   **`src/app/app_logic.c`**: 
+    *   Made `htim3` (PWM timer handle) global.
+    *   Called `UART_Receive_DMA_Start()` in `app_setup()`.
+    *   Updated `UART_Transmit_DMA()` calls to match the new signature.
+*   **`src/app/app_logic.h`**: Declared `htim3` as `extern`.
+*   **`src/app/stm32f4xx_it.c`**: 
+    *   Added `USARTx_RX_DMA_IRQHandler()` for the RX DMA stream.
+    *   Implemented `HAL_UARTEx_RxEventCallback()` to parse incoming commands (e.g., "d=50") and update PWM duty cycle using `pwm_set_duty_cycle_percent()`.
+*   **`src/app/stm32f4xx_it.h`**: Declared `USARTx_RX_DMA_IRQHandler()`.
 
 ### Learnings for Gemini Agents:
 
@@ -71,3 +87,4 @@ This section summarizes key insights gained during a debugging session and the r
 *   **Working with the User:**
     *   **Leverage User's Debugging Capabilities:** When the user states they have a debugger, immediately pivot to using it for precise diagnosis. Direct debugger inspection is often more efficient than indirect methods.
     *   **User's Domain Knowledge is Invaluable:** Always listen carefully to user feedback, especially their corrections and observations. Their direct experience with the hardware and code can significantly accelerate the debugging process. Be prepared to adjust your understanding based on their insights.
+*   **Efficient UART Reception:** For non-blocking, variable-length message reception, combining DMA with the UART's Idle Line detection (`HAL_UARTEx_ReceiveToIdle_DMA`) is highly efficient. It offloads byte-by-byte transfer to DMA and only interrupts the CPU once per message, when the transmission is complete. This is superior to byte-by-byte interrupt handling for message-based communication.

@@ -3,6 +3,9 @@
 #include "tim.h"
 #include "adc.h"
 #include "uart.h"
+#include "pwm.h" // Added
+#include <stdlib.h> // Added
+#include <string.h> // Added
 
 /* USER CODE BEGIN Includes */
 #include "app_logic.h"
@@ -10,6 +13,9 @@
 
 extern UART_HandleTypeDef huart2;
 extern volatile bool g_uart_tx_busy;
+extern TIM_HandleTypeDef htim3; // Added
+
+volatile bool g_uart_error_flag = false; // Define and initialize the error flag
 
 /******************************************************************************/
 /*           Cortex-M4 Processor Interruption and Exception Handlers          */
@@ -21,6 +27,24 @@ extern volatile bool g_uart_tx_busy;
 void SysTick_Handler(void)
 {
   HAL_IncTick();
+}
+
+/**
+  * @brief  UART error callback.
+  * @param  huart: UART handle.
+  * @retval None
+  */
+void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
+{
+  if(huart->Instance == USART2)
+  {
+    g_uart_error_flag = true; // Set the flag on UART error
+    // Optionally, clear the error flags in the UART peripheral if needed
+    // __HAL_UART_CLEAR_PEFLAG(huart);
+    // __HAL_UART_CLEAR_FEFLAG(huart);
+    // __HAL_UART_CLEAR_NEFLAG(huart);
+    // __HAL_UART_CLEAR_OREFLAG(huart);
+  }
 }
 
 /**
@@ -40,11 +64,19 @@ void ADC_DMA_IRQHandler(void)
 }
 
 /**
-  * @brief This function handles DMA1 stream6 global interrupt.
+  * @brief This function handles DMA1 stream6 global interrupt (USART2_TX). // Modified comment
   */
-void USARTx_DMA_IRQHandler(void)
+void USARTx_TX_DMA_IRQHandler(void) // Renamed
 {
   HAL_DMA_IRQHandler(huart2.hdmatx);
+}
+
+/**
+  * @brief This function handles DMA1 stream5 global interrupt (USART2_RX). // Added
+  */
+void USARTx_RX_DMA_IRQHandler(void) // Added
+{
+  HAL_DMA_IRQHandler(huart2.hdmarx);
 }
 
 /**
@@ -66,13 +98,47 @@ void USART2_IRQHandler(void)
   */
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 {
-  // This callback is called when the UART DMA transmission is complete.
-  // You can add any post-transmission logic here.
-  // For now, just having it defined is enough to allow the HAL to clear the busy state.
   if(huart->Instance == USART2)
   {
     g_uart_tx_busy = false;
   }
+}
+
+/**
+  * @brief  UART RX Event callback. // Added
+  * @param  huart: UART handle
+  * @param  Size: Number of data received
+  * @retval None
+  */
+void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size) // Added
+{
+    if (huart->Instance == USARTx)
+    {
+        // A simple parser for commands like "d=50"
+        if (Size > 2 && uart_dma_rx_buffer[0] == 'd' && uart_dma_rx_buffer[1] == '=')
+        {
+            // Create a temporary buffer for the numeric part and null-terminate it
+            char temp_buffer[16]; // Sufficient for "d=100" + null terminator
+            uint16_t num_len = Size - 2;
+            if (num_len >= sizeof(temp_buffer)) {
+                num_len = sizeof(temp_buffer) - 1; // Prevent buffer overflow
+            }
+            memcpy(temp_buffer, &uart_dma_rx_buffer[2], num_len);
+            temp_buffer[num_len] = '\0'; // Null-terminate the temporary buffer
+
+            // Convert the numeric part to an integer
+            int duty_cycle = atoi(temp_buffer);
+
+            // Update the PWM duty cycle
+            if (duty_cycle >= 0 && duty_cycle <= 100)
+            {
+                pwm_set_duty_cycle_percent(&htim3, PWM_TIM_CHANNEL, duty_cycle);
+            }
+        }
+
+        // Restart the UART reception to wait for the next message
+        UART_Receive_DMA_Start();
+    }
 }
 
 /**

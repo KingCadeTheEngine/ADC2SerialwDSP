@@ -59,7 +59,8 @@
 /* UART Configuration                                                         */
 /*============================================================================*/
 
-// Associated DMA: DMA1 Stream 6, Channel 4 (TX)
+// Associated DMA (TX): DMA1 Stream 6, Channel 4
+// Associated DMA (RX): DMA1 Stream 5, Channel 4
 // Associated GPIO: PA2 (USART2_TX), PA3 (USART2_RX)
 
 // UART Peripheral
@@ -79,18 +80,26 @@
 #define USARTx_RX_GPIO_PORT         GPIOA
 #define USARTx_RX_AF                GPIO_AF7_USART2
 
-// UART DMA Configuration
-#define USARTx_DMA_STREAM              DMA1_Stream6
-#define USARTx_DMA_CHANNEL             DMA_CHANNEL_4
-#define USARTx_DMA_CLK_ENABLE()        __HAL_RCC_DMA1_CLK_ENABLE()
-#define USARTx_DMA_IRQn                DMA1_Stream6_IRQn
-#define USARTx_DMA_IRQHandler          DMA1_Stream6_IRQHandler
+// UART DMA TX Configuration
+#define USARTx_TX_DMA_STREAM            DMA1_Stream6
+#define USARTx_TX_DMA_CHANNEL           DMA_CHANNEL_4
+#define USARTx_TX_DMA_CLK_ENABLE()      __HAL_RCC_DMA1_CLK_ENABLE()
+#define USARTx_TX_DMA_IRQn              DMA1_Stream6_IRQn
+#define USARTx_TX_DMA_IRQHandler        DMA1_Stream6_IRQHandler
+
+// UART DMA RX Configuration
+#define USARTx_RX_DMA_STREAM            DMA1_Stream5
+#define USARTx_RX_DMA_CHANNEL           DMA_CHANNEL_4
+#define USARTx_RX_DMA_CLK_ENABLE()      __HAL_RCC_DMA1_CLK_ENABLE()
+#define USARTx_RX_DMA_IRQn              DMA1_Stream5_IRQn
+#define USARTx_RX_DMA_IRQHandler        DMA1_Stream5_IRQHandler
 
 // UART Baud Rate
-#define USARTx_BAUD_RATE            115200
+#define USARTx_BAUD_RATE            2000000 // 2 Mbps
 
-// UART Transmit Buffer Size
+// UART Buffer Sizes
 #define UART_TX_BUFFER_SIZE         64
+#define UART_RX_BUFFER_SIZE         16
 
 
 /*============================================================================*/
