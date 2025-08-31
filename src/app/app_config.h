@@ -35,10 +35,10 @@
 #define ADC_DMA_IRQHandler          DMA2_Stream0_IRQHandler
 
 // ADC Buffer
-#define ADC_BUFFER_LENGTH           512
+#define ADC_BUFFER_LENGTH           1024
 
 // DSP Configuration
-#define DSP_WINDOW_LENGTH           64
+#define DSP_WINDOW_LENGTH           128
 
 /*============================================================================*/
 /* LED Blinky Configuration (using TIM)                                       */
@@ -163,7 +163,7 @@
 
 // Default PWM Parameters
 #define PWM_DEFAULT_FREQUENCY_HZ    40000    // Default frequency in Hz (e.g., 1 kHz)
-#define PWM_DEFAULT_DUTY_CYCLE_PERCENT 75   // Default duty cycle in percentage (0-100)
+#define PWM_DEFAULT_DUTY_CYCLE_PERCENT 50   // Default duty cycle in percentage (0-100)
 
 
 #endif /* __APP_CONFIG_H */

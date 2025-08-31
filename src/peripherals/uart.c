@@ -36,6 +36,8 @@ void UART_Transmit_DMA(const uint8_t* data, uint16_t size) {
 }
 
 void UART_Receive_DMA_Start(void) {
+    // Safely stop DMA before restarting reception
+    HAL_UART_DMAStop(&huart2);
     // Start UART reception in DMA mode with Idle Line detection
     if (HAL_UARTEx_ReceiveToIdle_DMA(&huart2, uart_dma_rx_buffer, UART_RX_BUFFER_SIZE) != HAL_OK) {
         // Reception start error

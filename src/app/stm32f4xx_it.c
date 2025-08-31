@@ -112,33 +112,43 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
   */
 void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size) // Added
 {
-    if (huart->Instance == USARTx)
+  if (huart->Instance == USARTx)
+  {
+    // Command: d=XX (set duty cycle)
+    if (Size > 2 && uart_dma_rx_buffer[0] == 'd' && uart_dma_rx_buffer[1] == '=')
     {
-        // A simple parser for commands like "d=50"
-        if (Size > 2 && uart_dma_rx_buffer[0] == 'd' && uart_dma_rx_buffer[1] == '=')
-        {
-            // Create a temporary buffer for the numeric part and null-terminate it
-            char temp_buffer[16]; // Sufficient for "d=100" + null terminator
-            uint16_t num_len = Size - 2;
-            if (num_len >= sizeof(temp_buffer)) {
-                num_len = sizeof(temp_buffer) - 1; // Prevent buffer overflow
-            }
-            memcpy(temp_buffer, &uart_dma_rx_buffer[2], num_len);
-            temp_buffer[num_len] = '\0'; // Null-terminate the temporary buffer
-
-            // Convert the numeric part to an integer
-            int duty_cycle = atoi(temp_buffer);
-
-            // Update the PWM duty cycle
-            if (duty_cycle >= 0 && duty_cycle <= 100)
-            {
-                pwm_set_duty_cycle_percent(&htim3, PWM_TIM_CHANNEL, duty_cycle);
-            }
-        }
-
-        // Restart the UART reception to wait for the next message
-        UART_Receive_DMA_Start();
+      char temp_buffer[16];
+      uint16_t num_len = Size - 2;
+      if (num_len >= sizeof(temp_buffer)) {
+        num_len = sizeof(temp_buffer) - 1;
+      }
+      memcpy(temp_buffer, &uart_dma_rx_buffer[2], num_len);
+      temp_buffer[num_len] = '\0';
+      int duty_cycle = atoi(temp_buffer);
+      if (duty_cycle >= 0 && duty_cycle <= 100)
+      {
+        pwm_set_duty_cycle_percent(&htim3, PWM_TIM_CHANNEL, duty_cycle);
+      }
     }
+    // Command: f=XXXX (set frequency)
+    else if (Size > 2 && uart_dma_rx_buffer[0] == 'f' && uart_dma_rx_buffer[1] == '=')
+    {
+      char temp_buffer[16];
+      uint16_t num_len = Size - 2;
+      if (num_len >= sizeof(temp_buffer)) {
+        num_len = sizeof(temp_buffer) - 1;
+      }
+      memcpy(temp_buffer, &uart_dma_rx_buffer[2], num_len);
+      temp_buffer[num_len] = '\0';
+      int freq_hz = atoi(temp_buffer);
+      if (freq_hz > 0 && freq_hz <= 100000) // Limit to reasonable range
+      {
+        pwm_set_frequency(&htim3, PWM_TIM_CHANNEL, freq_hz);
+      }
+    }
+    // Restart the UART reception to wait for the next message
+    UART_Receive_DMA_Start();
+  }
 }
 
 /**

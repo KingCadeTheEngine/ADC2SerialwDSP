@@ -16,6 +16,7 @@
 static float coeff_39khz;
 static float coeff_40khz;
 static float coeff_41khz;
+static float hann_window[DSP_WINDOW_LENGTH];
 
 // Function to calculate Goertzel coefficient
 static float calculate_goertzel_coeff(float target_freq, uint32_t window_size) {
@@ -30,16 +31,22 @@ static void goertzel_process(const uint16_t *adc_data, uint32_t window_size, flo
     float s1 = 0.0f;
     float s2 = 0.0f;
 
+    // Efficient DC removal: calculate mean in one pass
+    float mean = 0.0f;
     for (uint32_t i = 0; i < window_size; i++) {
-        // Normalize ADC value (assuming 12-bit ADC, 0-4095 range)
-        // Adjust this normalization based on your actual ADC voltage reference and input range
-        float sample = (float)adc_data[i] / 4095.0f; 
+        mean += (float)adc_data[i];
+    }
+    mean /= (float)window_size;
+
+    // Goertzel processing with mean removed, normalization, and windowing
+    for (uint32_t i = 0; i < window_size; i++) {
+        float sample = ((float)adc_data[i] - mean) / 4095.0f * hann_window[i];
         s0 = sample + coeff * s1 - s2;
         s2 = s1;
         s1 = s0;
     }
 
-    // Calculate magnitude squared
+    // Calculate magnitude and phase
     float real = s1 - s2 * coeff / 2.0f;
     float imag = s2 * sinf(acosf(coeff / 2.0f));
 
@@ -54,6 +61,11 @@ void DSP_Init(void) {
     coeff_39khz = calculate_goertzel_coeff(F_TARGET_39KHZ, DSP_WINDOW_LENGTH);
     coeff_40khz = calculate_goertzel_coeff(F_TARGET_40KHZ, DSP_WINDOW_LENGTH);
     coeff_41khz = calculate_goertzel_coeff(F_TARGET_41KHZ, DSP_WINDOW_LENGTH);
+
+    // Precompute Hann window coefficients
+    for (uint32_t i = 0; i < DSP_WINDOW_LENGTH; i++) {
+        hann_window[i] = 0.5f * (1.0f - cosf(2.0f * M_PI * i / (DSP_WINDOW_LENGTH - 1)));
+    }
 }
 
 uint8_t DSP_ProcessWindow(const uint16_t *adc_data_buffer, uint32_t window_size, GoertzelResults_t *results) {

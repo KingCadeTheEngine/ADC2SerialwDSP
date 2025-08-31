@@ -5,11 +5,13 @@
 
 // TIM_HandleTypeDef htim3; // Define htim3 here (now passed as parameter)
 
+// Store last frequency and duty cycle for each channel (assuming max 4 channels)
+static uint32_t last_frequency[4] = {PWM_DEFAULT_FREQUENCY_HZ, PWM_DEFAULT_FREQUENCY_HZ, PWM_DEFAULT_FREQUENCY_HZ, PWM_DEFAULT_FREQUENCY_HZ};
+static uint32_t last_duty_cycle[4] = {PWM_DEFAULT_DUTY_CYCLE_PERCENT, PWM_DEFAULT_DUTY_CYCLE_PERCENT, PWM_DEFAULT_DUTY_CYCLE_PERCENT, PWM_DEFAULT_DUTY_CYCLE_PERCENT};
+
 void PWM_Init(TIM_HandleTypeDef* htim, uint32_t channel)
 {
-
   htim->Instance = PWM_TIM_INSTANCE;
-  // Initial Prescaler and Period will be set by pwm_set_frequency
   htim->Init.CounterMode = TIM_COUNTERMODE_UP;
   htim->Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim->Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
@@ -18,11 +20,10 @@ void PWM_Init(TIM_HandleTypeDef* htim, uint32_t channel)
     Error_Handler();
   }
 
-  // Set initial frequency and duty cycle using the dedicated functions
+  last_frequency[channel] = PWM_DEFAULT_FREQUENCY_HZ;
+  last_duty_cycle[channel] = PWM_DEFAULT_DUTY_CYCLE_PERCENT;
   pwm_set_frequency(htim, channel, PWM_DEFAULT_FREQUENCY_HZ);
   pwm_set_duty_cycle_percent(htim, channel, PWM_DEFAULT_DUTY_CYCLE_PERCENT);
-
-  // HAL_TIM_PWM_Start(htim, channel); // Removed as per user request
 }
 
 void pwm_set_frequency(TIM_HandleTypeDef* htim, uint32_t channel, uint32_t frequency_hz)
@@ -48,15 +49,18 @@ void pwm_set_frequency(TIM_HandleTypeDef* htim, uint32_t channel, uint32_t frequ
   htim->Init.Prescaler = prescaler;
   htim->Init.Period = period;
   HAL_TIM_Base_Init(htim);
-  
-  // Reconfigure PWM channel with new period
+
+  last_frequency[channel] = frequency_hz;
+  // Use last duty cycle for this channel
+  uint32_t duty_cycle_percent = last_duty_cycle[channel];
+  uint32_t pulse = (htim->Init.Period + 1) * duty_cycle_percent / 100;
+
   TIM_OC_InitTypeDef sConfigOC = {0};
   sConfigOC.OCMode = TIM_OCMODE_PWM1;
-  sConfigOC.Pulse = (htim->Init.Period + 1) / 2; // Maintain 50% duty cycle initially
+  sConfigOC.Pulse = pulse;
   sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
   sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
   HAL_TIM_PWM_ConfigChannel(htim, &sConfigOC, channel);
-  // HAL_TIM_PWM_Start(htim, channel); // Removed as per user request
 }
 
 void pwm_set_pulsewidth_us(TIM_HandleTypeDef* htim, uint32_t channel, uint32_t pulsewidth_us)
@@ -83,7 +87,25 @@ void pwm_set_duty_cycle_percent(TIM_HandleTypeDef* htim, uint32_t channel, uint3
     duty_cycle_percent = 100; // Cap duty cycle at 100%
   }
 
-  uint32_t pulse = (htim->Init.Period + 1) * duty_cycle_percent / 100;
+  last_duty_cycle[channel] = duty_cycle_percent;
+  // Use last frequency for this channel
+  uint32_t frequency_hz = last_frequency[channel];
+  uint32_t tim_clock = HAL_RCC_GetPCLK1Freq() * 2;
+  uint32_t period = (tim_clock / frequency_hz) - 1;
+  uint32_t prescaler = 0;
+  while (period > 65535 && prescaler < 65535)
+  {
+    prescaler++;
+    period = (tim_clock / (frequency_hz * (prescaler + 1))) - 1;
+  }
+  if (prescaler >= 65535 || period >= 65535) {
+    return;
+  }
+  htim->Init.Prescaler = prescaler;
+  htim->Init.Period = period;
+  HAL_TIM_Base_Init(htim);
+
+  uint32_t pulse = (period + 1) * duty_cycle_percent / 100;
 
   TIM_OC_InitTypeDef sConfigOC = {0};
   sConfigOC.OCMode = TIM_OCMODE_PWM1;
@@ -91,7 +113,6 @@ void pwm_set_duty_cycle_percent(TIM_HandleTypeDef* htim, uint32_t channel, uint3
   sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
   sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
   HAL_TIM_PWM_ConfigChannel(htim, &sConfigOC, channel);
-  // HAL_TIM_PWM_Start(htim, channel); // Removed as per user request
 }
 
 void pwm_enable(TIM_HandleTypeDef* htim, uint32_t channel)
